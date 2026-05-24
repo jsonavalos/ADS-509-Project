@@ -20,5 +20,5 @@ class BigQueryClient:
             return f"Error running query: {str(e)}"
 
 
-bigquery_client = BigQueryClient()
-print(bigquery_client.run_query("SELECT * FROM `FinOps.focus_sample` LIMIT 10;"))
+#bigquery_client = BigQueryClient()
+#print(bigquery_client.run_query("SELECT * FROM `FinOps.focus_sample` LIMIT 10;"))

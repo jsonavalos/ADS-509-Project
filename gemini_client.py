@@ -3,6 +3,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+import tools.bq_tool as BigQueryClient
 
 load_dotenv()  # Loads variables from .env
 
@@ -11,49 +12,70 @@ MODEL_ID = "gemini-2.5-flash"
 
 # --- Define your schema, reuse everywhere ---
 CONTEXT_SCHEMA = """
-You have access to a Google Cloud Billing BigQuery dataset with the following structure:
+You have access to a Google Cloud Billing BigQuery dataset following the FOCUS (FinOps Open Cost and Usage Specification) standard.
 
-TABLE: `project_id.dataset_id.gcp_billing_export_v1`
+TABLE: `FinOps.focus_sample`
 
 COLUMNS:
-| Column Name                        | Type      | Description |
-|------------------------------------|-----------|-------------|
-| billing_account_id                 | STRING    | The billing account the usage is associated with |
-| service.id                         | STRING    | ID of the Google Cloud service |
-| service.description                | STRING    | Human-readable name of the service (e.g., 'BigQuery', 'Compute Engine') |
-| sku.id                             | STRING    | ID of the resource used |
-| sku.description                    | STRING    | Description of the SKU |
-| usage_start_time                   | TIMESTAMP | Start time of the usage period |
-| usage_end_time                     | TIMESTAMP | End time of the usage period |
-| project.id                         | STRING    | GCP project ID |
-| project.name                       | STRING    | GCP project name |
-| project.labels                     | RECORD[]  | Labels attached to the project (key/value pairs) |
-| labels                             | RECORD[]  | Labels on the resource (key/value pairs) |
-| system_labels                      | RECORD[]  | System-generated labels |
-| location.location                  | STRING    | Location of the resource |
-| location.country                   | STRING    | Country (e.g., 'US') |
-| location.region                    | STRING    | Region (e.g., 'us-central1') |
-| location.zone                      | STRING    | Zone (e.g., 'us-central1-a') |
-| cost                               | FLOAT64   | Cost of the usage before credits |
-| currency                           | STRING    | Currency code (e.g., 'USD') |
-| currency_conversion_rate           | FLOAT64   | Conversion rate to USD |
-| usage.amount                       | FLOAT64   | Amount of usage |
-| usage.unit                         | STRING    | Unit of usage (e.g., 'byte-seconds', 'requests') |
-| usage.amount_in_pricing_units      | FLOAT64   | Usage amount in pricing units |
-| usage.pricing_unit                 | STRING    | Pricing unit |
-| credits                            | RECORD[]  | Credits applied (name, amount, type, id) |
-| invoice.month                      | STRING    | Invoice month in YYYYMM format |
-| cost_type                          | STRING    | Type of cost: 'regular', 'tax', 'adjustment', 'rounding_error' |
-| adjustment_info                    | RECORD    | Info about adjustments if cost_type is 'adjustment' |
+| Column Name                  | Type      | Description |
+|------------------------------|-----------|-------------|
+| AvailabilityZone             | STRING    | Availability zone where the resource was deployed |
+| BilledCost                   | FLOAT     | Actual billed cost for the charge |
+| BillingAccountId             | STRING    | ID of the billing account |
+| BillingAccountName           | STRING    | Human-readable name of the billing account |
+| BillingCurrency              | STRING    | Currency code for all cost columns (e.g., 'USD') |
+| BillingPeriodEnd             | TIMESTAMP | End of the billing period |
+| BillingPeriodStart           | TIMESTAMP | Start of the billing period |
+| ChargeCategory               | STRING    | High-level category of the charge (e.g., 'Usage', 'Tax', 'Credit') |
+| ChargeClass                  | STRING    | Classification of the charge (e.g., 'Correction') |
+| ChargeDescription            | STRING    | Human-readable description of the charge |
+| ChargeFrequency              | STRING    | How often the charge recurs (e.g., 'One-Time', 'Recurring', 'Usage-Based') |
+| ChargePeriodEnd              | TIMESTAMP | End of the charge period |
+| ChargePeriodStart            | TIMESTAMP | Start of the charge period |
+| CommitmentDiscountCategory   | STRING    | Category of commitment discount (e.g., 'Spend', 'Usage') |
+| CommitmentDiscountId         | STRING    | ID of the commitment discount (e.g., CUD, SUD) |
+| CommitmentDiscountName       | STRING    | Name of the commitment discount |
+| CommitmentDiscountStatus     | STRING    | Whether usage was covered by a commitment ('Used', 'Unused') |
+| CommitmentDiscountType       | STRING    | Type of commitment (e.g., 'Committed Use Discount') |
+| ConsumedQuantity             | STRING    | Actual quantity of resource consumed |
+| ConsumedUnit                 | STRING    | Unit for ConsumedQuantity (e.g., 'hours', 'GB') |
+| ContractedCost               | STRING    | Cost based on contracted rates |
+| ContractedUnitPrice          | STRING    | Contracted unit price before discounts |
+| EffectiveCost                | FLOAT     | Cost after all discounts and credits are applied |
+| InvoiceIssuerName            | STRING    | Name of the entity issuing the invoice (e.g., 'Google') |
+| ListCost                     | FLOAT     | Cost at public list/on-demand price |
+| ListUnitPrice                | STRING    | Public list price per unit |
+| PricingCategory              | STRING    | How the charge was priced (e.g., 'On-Demand', 'Committed') |
+| PricingQuantity              | FLOAT     | Quantity used for pricing calculation |
+| PricingUnit                  | STRING    | Unit used for pricing (e.g., 'hour', 'GB-month') |
+| ProviderName                 | STRING    | Cloud provider name (e.g., 'Google') |
+| PublisherName                | STRING    | Publisher of the service |
+| RegionId                     | STRING    | Machine-readable region ID (e.g., 'us-central1') |
+| RegionName                   | STRING    | Human-readable region name |
+| ResourceId                   | STRING    | Unique identifier for the resource |
+| ResourceName                 | STRING    | Human-readable name of the resource |
+| ResourceType                 | STRING    | Type of resource (e.g., 'Compute Instance', 'Storage Bucket') |
+| ServiceCategory              | STRING    | High-level service category (e.g., 'Compute', 'Storage', 'AI and Machine Learning') |
+| Id                           | INTEGER   | Unique row identifier |
+| ServiceName                  | STRING    | Name of the cloud service (e.g., 'Cloud Run', 'BigQuery') |
+| SkuId                        | STRING    | Unique SKU identifier |
+| SkuPriceId                   | STRING    | Unique identifier for the SKU price |
+| SubAccountId                 | STRING    | Sub-account or project ID |
+| SubAccountName               | STRING    | Sub-account or project name |
+| Tags                         | STRING    | Resource tags/labels as a serialized string |
 
 IMPORTANT QUERY RULES:
-- Always use `TIMESTAMP_TRUNC()` for date grouping, not `DATE()` on TIMESTAMP fields
-- Access nested fields with dot notation: `project.id`, `service.description`
-- For labels, use: `(SELECT value FROM UNNEST(labels) WHERE key = 'env')` 
-- Total cost including credits: `SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) c), 0))`
-- Always include a `WHERE usage_start_time >= TIMESTAMP('YYYY-MM-DD')` to limit scan costs
-- Use `ROUND(SUM(cost), 2)` for monetary values
-- Remove Null values with `IFNULL(field, 0)` or `IFNULL(field, 'Unknown')`
+- All cost columns (BilledCost, EffectiveCost, ListCost) are FLOAT — use ROUND(..., 2) for display
+- ConsumedQuantity, ContractedCost, ContractedUnitPrice, ListUnitPrice are STRING — CAST to FLOAT if doing math: CAST(ConsumedQuantity AS FLOAT64)
+- Use ChargePeriodStart / ChargePeriodEnd (not BillingPeriodStart) for usage-level time filtering
+- Use TIMESTAMP_TRUNC(ChargePeriodStart, MONTH) for monthly grouping
+- Filter time ranges with: WHERE ChargePeriodStart >= TIMESTAMP('YYYY-MM-DD')
+- Tags is a flat STRING — use JSON_EXTRACT or LIKE to filter: WHERE Tags LIKE '%"env":"prod"%'
+- For net cost after discounts, prefer EffectiveCost over BilledCost
+- For commitment discount analysis, filter: WHERE CommitmentDiscountId IS NOT NULL
+- Use IFNULL(BilledCost, 0) and IFNULL(ServiceName, 'Unknown') to handle NULLs
+- Group by SubAccountName or SubAccountId to break down costs by project
+- FOCUS schema uses PascalCase column names — do not use snake_case equivalents
 """
 
 class GeminiClient:
@@ -87,15 +109,16 @@ class GeminiClient:
 
         Request: {prompt}
 
-        The SQL should be syntactically correct and only include the query itself, without any explanatory text.
+        Return ONLY the raw SQL query. No markdown, no code fences, no explanations.
         """
         try:
             response = self.client.models.generate_content(
             model=MODEL_ID,
             contents=sql_prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.0,  # Deterministic output for code generation
-                )
+            config=self._base_config,
+            #config=types.GenerateContentConfig(
+            #    temperature=0.0,  # Deterministic output for code generation
+            #    )
             )
             return response.text.strip()
         except Exception as e:
@@ -103,7 +126,14 @@ class GeminiClient:
 
 
 
-
+######################### TESTING / EXAMPLE USAGE BELOW #########################
 gemini_client =GeminiClient()
 #print(gemini_client.ask("Where are Meta data stored in BigQuery?"))
-print(gemini_client.convert_prompt_to_sql('I would like to get all the column names in my database'))
+#print(gemini_client.convert_prompt_to_sql('What is the service that has exceeded $10k in spend this week?'))
+
+bq_client = BigQueryClient()
+sql_query = gemini_client.convert_prompt_to_sql('What are the services that we use in the company?')
+print(sql_query)
+print("Resulting SQL Query: (What are the services that we use in the company?)")
+print(bq_client.run_query(sql_query))
+
