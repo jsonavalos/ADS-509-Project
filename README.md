@@ -15,6 +15,14 @@ git clone https://github.com/jsonavalos/ADS-509-Project
 cd your-project
 ```
 
+
+3. Create Environment & activate Python enviroment
+```bash
+python -m venv .venv
+source .venv/bin/activate
+
+```
+
 2. Install dependencies:
 ```bash
 pip install -r requirements.txt

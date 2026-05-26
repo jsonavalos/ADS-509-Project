@@ -2,7 +2,6 @@
 
 import os
 from dotenv import load_dotenv
-from google import genai
 from google.cloud import bigquery
 
 load_dotenv()
@@ -19,6 +18,6 @@ class BigQueryClient:
         except Exception as e:
             return f"Error running query: {str(e)}"
 
-
-#bigquery_client = BigQueryClient()
-#print(bigquery_client.run_query("SELECT * FROM `FinOps.focus_sample` LIMIT 10;"))
+####### TESTING / EXAMPLE USAGE BELOW #######
+bigquery_client = BigQueryClient()
+print(bigquery_client.run_query("SELECT * FROM `FinOps.focus_sample` LIMIT 10;"))

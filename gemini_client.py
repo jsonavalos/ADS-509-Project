@@ -1,9 +1,8 @@
 import os
-import pandas as pd
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-import tools.bq_tool as BigQueryClient
+from tools.bq_tool import BigQueryClient
 
 load_dotenv()  # Loads variables from .env
 
@@ -123,6 +122,7 @@ class GeminiClient:
             return response.text.strip()
         except Exception as e:
             return f"Error generating SQL: {str(e)}"
+        
 
 
 
@@ -136,4 +136,3 @@ sql_query = gemini_client.convert_prompt_to_sql('What are the services that we u
 print(sql_query)
 print("Resulting SQL Query: (What are the services that we use in the company?)")
 print(bq_client.run_query(sql_query))
-
