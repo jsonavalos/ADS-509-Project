@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 annotated-types==0.7.0
 anyio==4.12.1
 beautifulsoup4==4.14.3
@@ -48,3 +49,8 @@ typing_extensions==4.15.0
 uritemplate==4.2.0
 urllib3==2.6.3
 websockets==15.0.1
+=======
+google-genai
+pandas
+python-dotenvstreamlit
+>>>>>>> b8bba66 (Update FinOps Streamlit scaffold)
