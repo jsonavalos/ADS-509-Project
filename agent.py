@@ -1,35 +1,149 @@
 # agent.py
+import os
+import pandas as pd
+from dotenv import load_dotenv
+from google import genai
+from google.cloud import bigquery
+
+load_dotenv()
+
+MODEL_ID = "gemini-2.5-flash"
+
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+BQ_DATASET = os.getenv("BQ_DATASET")
+BQ_TABLE = os.getenv("BQ_TABLE")
+
+gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+bq_client = bigquery.Client(project=GCP_PROJECT_ID)
+
+
+SYSTEM_PROMPT = """
+You are a Strategic Finance FinOps Agent for a class prototype.
+
+You help finance and engineering users understand cloud cost trends using a BigQuery-hosted FOCUS-style cloud billing dataset.
+
+Your responsibilities:
+- Answer open-ended questions about cloud spend.
+- Generate SQL queries for BigQuery when data is needed.
+- Summarize results in business-friendly language.
+- Identify cost drivers, anomalies, and potential governance risks.
+- Recommend actions such as investigation, budget review, owner notification, or simulated access suspension.
+
+Important constraints:
+- Do not claim to suspend access unless an actual system integration exists.
+- For governance actions, describe them as prototype/simulated unless explicitly connected to a real internal system.
+- If the question is ambiguous, ask a clarifying question.
+- If the dataset schema is unknown, use only known fields or ask for schema details.
+- Keep responses concise, practical, and executive-ready.
+"""
+
+
+def run_bigquery(sql: str) -> pd.DataFrame:
+    """Run a SQL query against BigQuery and return a dataframe."""
+    query_job = bq_client.query(sql)
+    return query_job.to_dataframe()
+
+
+def get_table_schema() -> str:
+    """Return the BigQuery table schema as text."""
+    table_id = f"{GCP_PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}"
+    table = bq_client.get_table(table_id)
+
+    schema_lines = []
+    for field in table.schema:
+        schema_lines.append(f"- {field.name}: {field.field_type}")
+
+    return "\n".join(schema_lines)
+
+
+def ask_gemini(prompt: str) -> str:
+    """Send a prompt to Gemini and return text."""
+    response = gemini_client.models.generate_content(
+        model=MODEL_ID,
+        contents=prompt
+    )
+    return response.text
+
+
+def generate_sql(user_input: str, schema: str) -> str:
+    """Ask Gemini to generate BigQuery SQL for the user's FinOps question."""
+    prompt = f"""
+{SYSTEM_PROMPT}
+
+You are generating BigQuery SQL for this table:
+
+`{GCP_PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}`
+
+Schema:
+{schema}
+
+User question:
+{user_input}
+
+Return only valid BigQuery SQL. Do not include markdown fences.
+"""
+
+    sql = ask_gemini(prompt)
+    return sql.replace("```sql", "").replace("```", "").strip()
+
+
+def summarize_results(user_input: str, sql: str, df: pd.DataFrame) -> str:
+    """Ask Gemini to summarize the query result."""
+    preview = df.head(20).to_string(index=False)
+
+    prompt = f"""
+{SYSTEM_PROMPT}
+
+User question:
+{user_input}
+
+SQL used:
+{sql}
+
+Query result preview:
+{preview}
+
+Write a concise FinOps answer. Include:
+1. Key finding
+2. Cost drivers or risks
+3. Recommended action
+4. Any caveats
+"""
+
+    return ask_gemini(prompt)
+
 
 def run_agent(user_input, history=None):
     """
-    Temporary FinOps agent backend.
-
-    This placeholder confirms that the Streamlit UI can call a separate
-    agent function. Later, this function can route requests to Gemini,
-    BigQuery, forecasting logic, or governance checks.
+    Main FinOps agent function called by Streamlit.
+    Routes user questions to BigQuery and Gemini.
     """
 
-    user_input_lower = user_input.lower()
+    lower_input = user_input.lower()
 
-    if "summarize" in user_input_lower or "billing" in user_input_lower:
+    # Governance action guardrail
+    if "suspend" in lower_input or "cut off" in lower_input or "disable access" in lower_input:
         return (
-            "I can summarize billing by service. "
-            "Next, we will connect this to billing data and return service-level spend trends."
+            "For this prototype, I can identify high-spend users or resources and draft a warning message, "
+            "but I will treat access suspension as a simulated governance action unless a real internal access system is connected."
         )
 
-    if "forecast" in user_input_lower:
-        return (
-            "I can forecast cloud spend. "
-            "Next, we will connect this to historical spend data and produce a 30-day forecast."
-        )
+    try:
+        schema = get_table_schema()
+        sql = generate_sql(user_input, schema)
+        df = run_bigquery(sql)
 
-    if "spend" in user_input_lower or "$10k" in user_input_lower:
-        return (
-            "I can identify high-spend users or cost centers. "
-            "Next, we will connect this to usage data and flag users above the selected threshold."
-        )
+        if df.empty:
+            return (
+                "I queried the BigQuery dataset, but the result returned no rows. "
+                "Try broadening the time window, service, project, or cost threshold."
+            )
 
-    return (
-        f"FinOps agent received your question: {user_input}\n\n"
-        "Next, we will connect this prompt to the real agent workflow."
-    )
+        return summarize_results(user_input, sql, df)
+
+    except Exception as e:
+        return (
+            "I was not able to complete the BigQuery-backed analysis yet.\n\n"
+            f"Error: {e}\n\n"
+            "This usually means the BigQuery project, dataset, table, credentials, or schema configuration needs to be updated."
+        )

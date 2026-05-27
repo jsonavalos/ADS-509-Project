@@ -7,9 +7,12 @@ st.set_page_config(page_title="FinOps Agent", page_icon="💸", layout="wide")
 st.title("FinOps Agent")
 
 SUGGESTED_PROMPTS = [
-    "Summarize last month's billing by service",
-    "Forecast GCE spend for the next 30 days",
-    "Find users with spend > $10k this week",
+    "Summarize cloud spend by service for the most recent month",
+    "Identify the top cost drivers and explain what changed",
+    "Forecast total cloud spend for the next 30 days",
+    "Find projects, services, or users with unusually high spend",
+    "Create an executive FinOps summary with risks and recommendations",
+    "Draft a warning email for owners of high-spend resources"
 ]
 
 if "display" not in st.session_state:
