@@ -1,4 +1,6 @@
 # app.py
+from email.mime import text
+
 import streamlit as st
 from agent import run_agent
 
@@ -15,6 +17,12 @@ SUGGESTED_PROMPTS = [
     "Draft a warning email for owners of high-spend resources"
 ]
 
+### Helper functions
+def safe_markdown(text: str) -> None:
+    """Render markdown but escape $ signs to prevent LaTeX rendering."""
+    escaped = text.replace("$", r"\$")
+    st.markdown(escaped)
+
 if "display" not in st.session_state:
     st.session_state.display = []
 
@@ -26,7 +34,8 @@ for prompt in SUGGESTED_PROMPTS:
         st.session_state.pending = prompt
 
 for msg in st.session_state.display:
-    st.chat_message(msg["role"]).write(msg["content"])
+    with st.chat_message(msg["role"]):
+        safe_markdown(msg["content"])
 
 user_input = st.chat_input("Ask about your cloud costs...")
 
@@ -34,9 +43,11 @@ if user_input or st.session_state.pending:
     user_input = user_input or st.session_state.pop("pending")
 
     st.session_state.display.append({"role": "user", "content": user_input})
-    st.chat_message("user").write(user_input)
+    with st.chat_message("user"):
+        safe_markdown(user_input)
 
     response_text = run_agent(user_input, st.session_state.display)
 
     st.session_state.display.append({"role": "assistant", "content": response_text})
-    st.chat_message("assistant").write(response_text)
+    with st.chat_message("assistant"):
+        safe_markdown(response_text)

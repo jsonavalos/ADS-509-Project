@@ -86,9 +86,7 @@ Return only valid BigQuery SQL. Do not include markdown fences.
     sql = ask_gemini(prompt)
     return sql.replace("```sql", "").replace("```", "").strip()
 
-
 def summarize_results(user_input: str, sql: str, df: pd.DataFrame) -> str:
-    """Ask Gemini to summarize the query result."""
     preview = df.head(20).to_string(index=False)
 
     prompt = f"""
@@ -103,13 +101,27 @@ SQL used:
 Query result preview:
 {preview}
 
-Write a concise FinOps answer. Include:
-1. Key finding
-2. Cost drivers or risks
-3. Recommended action
-4. Any caveats
-"""
+Write a concise FinOps answer using markdown. Use these EXACT section headers and formats:
 
+### 🔍 Key Finding
+One or two sentences summarizing the main insight.
+
+### 💸 Cost Drivers & Risks
+- Service Name: +USD X.XX (reason if known)
+- Service Name: +USD X.XX (reason if known)
+
+### ✅ Recommended Actions
+1. Action one
+2. Action two
+
+### ⚠️ Caveats
+Any data limitations or assumptions.
+
+IMPORTANT:
+- Never use dollar signs ($). Write "USD 36.00" instead of "$36.00".
+- Use markdown headers (###) and bullet points (-) exactly as shown above.
+- Do not wrap the response in code fences.
+"""
     return ask_gemini(prompt)
 
 
