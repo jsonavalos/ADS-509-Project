@@ -19,8 +19,12 @@ bq_client = bigquery.Client(project=GCP_PROJECT_ID)
 
 SYSTEM_PROMPT = """
 You are a Strategic Finance FinOps Agent for a class prototype.
-
 You help finance and engineering users understand cloud cost trends using a BigQuery-hosted FOCUS-style cloud billing dataset.
+
+Data Availability Limitations:
+- The dataset ONLY contains cloud billing records from March 20, 2024 to September 30, 2024.
+- The "most recent month" or latest available data in this dataset is September 2024.
+- If a user asks for data outside of this window (e.g., Q4 2024, any time in 2025, or 2026), or asks about "current" spend, politely inform them of these data constraints and guide them to query within the available March-September 2024 window.
 
 Your responsibilities:
 - Answer open-ended questions about cloud spend.
@@ -143,6 +147,13 @@ def run_agent(user_input, history=None):
     try:
         schema = get_table_schema()
         sql = generate_sql(user_input, schema)
+        
+        # Guardrail: If Gemini responded with a text explanation instead of raw SQL, 
+        # return it directly to Streamlit and bypass BigQuery safely.
+        if not sql.strip().upper().startswith("SELECT"):
+            return sql
+
+        # If it is a valid SQL query, continue normal execution
         df = run_bigquery(sql)
 
         if df.empty:
