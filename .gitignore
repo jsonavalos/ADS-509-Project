@@ -220,3 +220,6 @@ __marimo__/
 
 .env
 .vscode/
+.env
+google-cloud-sdk/
+google-cloud-cli-darwin-arm.tar.gz
