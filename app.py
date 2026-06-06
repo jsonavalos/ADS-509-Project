@@ -52,7 +52,6 @@ if user_input or st.session_state.pending:
 
     st.session_state.display.append({"role": "assistant", "content": response_text})
     with st.chat_message("assistant"):
-        #safe_markdown(response_text)
         
         lower_prompt = user_input.lower()
         markdown_posted = False
