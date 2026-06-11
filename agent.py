@@ -128,6 +128,25 @@ IMPORTANT:
 """
     return ask_gemini(prompt)
 
+def generate_email_template(user_input: str) -> str:
+    prompt = f"""
+You are a professional assistant. The user is asking for an email draft:
+
+"{user_input}"
+
+Return a clean, professional email template they can copy/paste.
+
+Rules:
+- Plain text only.
+- No markdown.
+- Include greeting, context, body, and closing.
+- Keep it concise and business‑appropriate.
+- Use 'USD 1,234' instead of '$1,234'.
+"""
+
+    return ask_gemini(prompt)
+
+
 
 def run_agent(user_input, history=None):
     """
@@ -150,7 +169,8 @@ def run_agent(user_input, history=None):
         
         # Guardrail: If Gemini responded with a text explanation instead of raw SQL, 
         # return it directly to Streamlit and bypass BigQuery safely.
-        if not sql.strip().upper().startswith("SELECT"):
+        if not (sql.strip().upper().startswith("SELECT") or 
+            sql.strip().upper().startswith("WITH")):
             return sql
 
         # If it is a valid SQL query, continue normal execution

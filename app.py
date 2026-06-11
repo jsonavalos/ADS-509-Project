@@ -2,6 +2,7 @@
 from email.mime import text
 import streamlit as st
 from agent import run_agent
+from agent import generate_email_template
 
 st.set_page_config(page_title="FinOps Agent", page_icon="💸", layout="wide")
 
@@ -21,6 +22,7 @@ def safe_markdown(text: str) -> None:
     """Render markdown but escape $ signs to prevent LaTeX rendering."""
     escaped = text.replace("$", r"\$")
     st.markdown(escaped)
+
 
 if "display" not in st.session_state:
     st.session_state.display = []
@@ -50,10 +52,24 @@ if user_input or st.session_state.pending:
 
     st.session_state.display.append({"role": "assistant", "content": response_text})
     with st.chat_message("assistant"):
-        safe_markdown(response_text)
         
-        # ─── NEW FIXED DYNAMIC CHARTING & STATISTICS INTERCEPTOR ───
         lower_prompt = user_input.lower()
+        markdown_posted = False
+
+        # Email drafting branch
+        if any(x in lower_prompt for x in [
+            "draft an email",
+            "write an email",
+            "email draft",
+            "draft a reply",
+            "compose an email",
+            "warning email",
+            "draft message"
+        ]): 
+            safe_markdown(generate_email_template(user_input))
+            markdown_posted = True
+
+        # ─── NEW FIXED DYNAMIC CHARTING & STATISTICS INTERCEPTOR ───
         if any(x in lower_prompt for x in ["chart", "forecast", "spend by service", "high spend"]):
             try:
                 # Import your BigQuery runner functions from agent.py
@@ -73,6 +89,8 @@ if user_input or st.session_state.pending:
                 
                 if not df.empty:
                     df['usage_date'] = pd.to_datetime(df['usage_date'])
+                    safe_markdown(response_text)
+                    markdown_posted = True
                     st.write("---")
                     
                     # ─── SCENARIO A: STATISTICAL FORECAST (LINE CHART) ───
@@ -126,3 +144,6 @@ if user_input or st.session_state.pending:
                         
             except Exception as chart_err:
                 pass
+
+        if not markdown_posted:
+            safe_markdown(response_text)
