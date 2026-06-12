@@ -4,6 +4,8 @@ import pandas as pd
 from dotenv import load_dotenv
 from google import genai
 from google.cloud import bigquery
+from google.oauth2 import service_account
+import streamlit as st
 
 load_dotenv()
 
@@ -13,8 +15,17 @@ GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 BQ_DATASET = os.getenv("BQ_DATASET")
 BQ_TABLE = os.getenv("BQ_TABLE")
 
+def get_bq_client():
+    creds = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"]
+    )
+    return bigquery.Client(credentials=creds, project=creds.project_id)
+
+
 gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-bq_client = bigquery.Client(project=GCP_PROJECT_ID)
+
+
+bq_client = get_bq_client()
 
 
 SYSTEM_PROMPT = """
