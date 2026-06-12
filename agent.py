@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.cloud import bigquery
 from google.oauth2 import service_account
+import google.auth
 import streamlit as st
 
 load_dotenv()
@@ -15,17 +16,24 @@ GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 BQ_DATASET = os.getenv("BQ_DATASET")
 BQ_TABLE = os.getenv("BQ_TABLE")
 
-def get_bq_client():
-    creds = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"]
-    )
-    return bigquery.Client(credentials=creds, project=creds.project_id)
+def get_bq_credentials():
+    # Safe check: st.secrets only exists if secrets.toml is present
+    try:
+        service_acct = st.secrets["gcp_service_account"]
+        return service_account.Credentials.from_service_account_info(service_acct)
+    except Exception:
+        # Local environment → use ADC
+        creds, _ = google.auth.default()
+        return creds
 
+
+# Your original line stays the same — now with credentials injected
+bq_client = bigquery.Client(
+    project=GCP_PROJECT_ID,
+    credentials=get_bq_credentials()
+)
 
 gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-
-
-bq_client = get_bq_client()
 
 
 SYSTEM_PROMPT = """
