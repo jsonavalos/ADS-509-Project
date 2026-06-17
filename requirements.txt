@@ -46,3 +46,4 @@ requests
 scikit-learn
 SQLAlchemy
 streamlit
+html2text

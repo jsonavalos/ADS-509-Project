@@ -18,7 +18,7 @@ def send_email(to: str, subject: str, body: str) -> None:
     msg["From"]    = SENDER_EMAIL
     msg["To"]      = to
     msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain")) # can be switched to "html" if needed
+    msg.attach(MIMEText(body, "html")) # can be switched to "html" if needed
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(SENDER_EMAIL, APP_PASSWORD)
