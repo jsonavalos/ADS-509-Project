@@ -1,4 +1,4 @@
-# FinOps Agent — Cloud Cost Insights + Email Approval Workflow
+# FinOps Agent
 
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-red?logo=streamlit)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
