@@ -118,8 +118,6 @@ SENDER_EMAIL=your_email
 APP_PASSWORD=your_app_password
 ```
 
-If using a service account, add the credentials to `.streamlit/secrets.toml`.
-
 ### Getting a Gemini API Key (GOOGLE_API_KEY)
  
 1. Go to [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) and sign in with your Google account
