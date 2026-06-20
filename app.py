@@ -31,6 +31,10 @@ if "display" not in st.session_state:
 if "pending" not in st.session_state:
     st.session_state.pending = None
 
+if "chart_container" not in st.session_state:
+    st.session_state.chart_container = st.container()
+
+
 # Suggested prompt buttons
 for prompt in SUGGESTED_PROMPTS:
     if st.button(prompt):
@@ -104,7 +108,9 @@ if user_input or st.session_state.pending:
                     combined = pd.concat([daily_history, forecast_df]).reset_index()
                     combined.columns = ['Date', 'Daily Spend (USD)', 'Status']
 
-                    st.line_chart(combined, x='Date', y='Daily Spend (USD)', color='Status')
+                    with st.session_state.chart_container:
+                        st.line_chart(combined, x='Date', y='Daily Spend (USD)', color='Status')
+
 
                     # Stats summary
                     st.subheader("📋 Forecast Baseline Descriptive Statistics")
@@ -114,7 +120,6 @@ if user_input or st.session_state.pending:
                     col3.metric("Projected Floor Spend", f"USD {min(forecasted_costs):,.2f}")
                     col4.metric("Total Forecasted Run-Rate", f"USD {sum(forecasted_costs):,.2f}")
 
-                    st.stop()  # Prevent agent from running
 
                 # ─── SCENARIO B: BAR CHART (SERVICE OR SUBACCOUNT) ───
                 elif "service" in lower_prompt or "bar" in lower_prompt:
